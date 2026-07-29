@@ -11,8 +11,8 @@ skill は MCP server や API token を自動設定しない。先に Stele MCP �
 Claude Code:
 
 ```bash
-claude plugin marketplace add athena-campus/stele-plugin --scope user
-claude plugin install stele@stele --scope user
+claude plugin marketplace add athena-campus/stele-plugin --scope project
+claude plugin install stele@stele --scope project
 ```
 
 Codex:
