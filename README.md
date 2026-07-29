@@ -26,15 +26,25 @@ codex plugin add stele@stele
 
 Codex は token を `STELE_TOKEN` 環境変数から読む。設定済みの shell から Codex を起動する。
 
-導入後、新しい Claude Code / Codex session を開始する。`claude mcp list` / `codex mcp list` に `stele` が出れば接続設定は完了。Marketplace 更新後の再導入:
+導入後、新しい Claude Code / Codex session を開始する。`claude mcp list` / `codex mcp list` に `stele` が出れば接続設定は完了。
+
+## 更新する
+
+`claude plugin marketplace add` は既に取得済みの Marketplace には何もしない。更新は専用コマンドを使う。
 
 ```bash
 claude plugin marketplace update stele
-claude plugin update stele@stele
+claude plugin update stele@stele --scope project
 
 codex plugin marketplace upgrade stele
 codex plugin add stele@stele
 ```
+
+`claude plugin update` の既定 scope は `user`。導入時と同じ scope を明示しないと `Plugin "stele" is not installed at scope user` で失敗する。
+
+更新の要否は `plugin.json` の `version` で判定される。同じ version のまま内容だけ差し替えても `already at the latest version` となり適用されない。配布側は変更のたびに `.claude-plugin/plugin.json` と `.codex-plugin/plugin.json` の `version` を揃えて上げる。
+
+更新後は新しい session を開始する。0.3.0 以前から更新した場合は MCP server の設定が増えるため、Claude Code で `/plugin configure stele@stele` を実行して token を入力する。
 
 ## local checkout から Claude Code plugin を読み込む
 
