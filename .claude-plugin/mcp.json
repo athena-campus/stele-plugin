@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stele": {
+      "type": "http",
+      "url": "https://stele-delta.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.STELE_TOKEN}"
+      }
+    }
+  }
+}

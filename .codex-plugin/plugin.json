@@ -9,6 +9,7 @@
   "repository": "https://github.com/athena-campus/stele-plugin",
   "keywords": ["stele", "mcp", "documentation", "suggestions"],
   "skills": "./skills/",
+  "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
     "displayName": "Stele",
     "shortDescription": "Use Stele MCP safely from Codex.",
