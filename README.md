@@ -2,11 +2,11 @@
 
 Stele MCP の tool を正しい順序で使うための Claude Code / Codex plugin。Document の探索と再取得、Plan・Suggestion・Proposal の連携、変更グループ、楽観ロックの回復、Note・Property・Template・短命 presence・変更 feed・role 境界を `stele-mcp` skill として配布する。
 
-plugin は Stele MCP server の接続設定と `stele-mcp` skill をまとめて配る。API token だけは client 側で入力する — Claude Code は導入時のマスク入力を OS の secure storage へ、Codex は `STELE_TOKEN` 環境変数から読む。token の実値は plugin package にも Marketplace manifest にも含まない。
+plugin は Stele MCP server の接続設定と `stele-mcp` skill をまとめて配る。接続設定は endpoint URL だけを持ち、Claude Code / Codex が Stele の OAuth 2.1 metadata を discovery して browser consent を開始する。API token は OAuth を使えない client と watcher の互換経路としてのみ維持する。
 
 ## Marketplace から導入する
 
-この repository は配布専用。Stele 本体の source code、運用資料、認証情報は含まない。Stele の利用には別途発行された API token と、対象 Workspace への権限が必要。
+この repository は配布専用。Stele 本体の source code、運用資料、認証情報は含まない。Stele の利用には Stele account と対象 Workspace への権限が必要。
 
 Claude Code:
 
@@ -15,7 +15,7 @@ claude plugin marketplace add athena-campus/stele-plugin --scope project
 claude plugin install stele@stele --scope project
 ```
 
-install 時に `Stele API token` の入力を求められる。入力値はマスクされ、OS の secure storage（keychain）へ保存される。後から設定・変更する場合は Claude Code 内で `/plugin configure stele@stele` を実行する。token を設定するまで `stele` MCP server は接続されない。
+install 後、Claude Code の `/mcp` で `stele` を選び、browser で Stele にログインして接続先 Workspace と capability を承認する。OAuth token は Claude Code が安全に保存し、自動更新する。
 
 Codex:
 
@@ -24,9 +24,9 @@ codex plugin marketplace add athena-campus/stele-plugin
 codex plugin add stele@stele
 ```
 
-Codex は token を `STELE_TOKEN` 環境変数から読む。設定済みの shell から Codex を起動する。
+Codex plugin の install authentication で browser consent が始まらない場合は、`codex mcp login stele` を実行する。
 
-導入後、新しい Claude Code / Codex session を開始する。`claude mcp list` / `codex mcp list` に `stele` が出れば接続設定は完了。
+導入後、新しい Claude Code / Codex session を開始する。`claude mcp list` / `codex mcp list` に `stele` が出て、OAuth 認証後に connected となれば接続完了。
 
 ## 更新する
 
@@ -44,7 +44,7 @@ codex plugin add stele@stele
 
 更新の要否は `plugin.json` の `version` で判定される。同じ version のまま内容だけ差し替えても `already at the latest version` となり適用されない。配布側は変更のたびに `.claude-plugin/plugin.json` と `.codex-plugin/plugin.json` の `version` を揃えて上げる。
 
-更新後は新しい session を開始する。0.3.0 以前から更新した場合は MCP server の設定が増えるため、Claude Code で `/plugin configure stele@stele` を実行して token を入力する。
+更新後は新しい session を開始する。0.4.0 以前から更新した場合、旧 `STELE_TOKEN` 設定はpluginから参照されなくなる。Claude Code は `/mcp`、Codex は `codex mcp login stele` から OAuth を完了する。
 
 ## local checkout から Claude Code plugin を読み込む
 
@@ -56,7 +56,7 @@ claude --plugin-dir "$PWD/plugins/stele"
 
 `--plugin-dir` はその Claude Code session に plugin を読み込む option。plugin を使う各 session を同じ option 付きで起動する。
 
-この経路では install を経ないため `userConfig` が未設定のままで、`stele` MCP server は登録されない（skill だけが有効になる）。local checkout で MCP も使う場合は、後述の手動設定で `.mcp.json` を置く。
+この経路でも URL-only の `stele` MCP server が登録される。Claude Code の `/mcp` から OAuth を完了する。
 
 ## `SKILL.md` を手動で配置する
 
@@ -82,22 +82,26 @@ Codex で手動配置する場合は、同じ `SKILL.md` を `$CODEX_HOME/skills
 
 `SKILL.md` の更新時は、公開 docs の ja/en `client-skill.mdx` に埋め込んだ全文も同期する。
 
-## API token
+## OAuth 接続
 
-Stele の `/settings` で Personal Access Token を発行する。token は `sk_stele_` で始まり、一度だけ表示される。
+Stele MCP は RFC 9728 Protected Resource Metadata と Supabase Auth OAuth 2.1 Server を公開する。plugin は Authorization header や固定 token を設定せず、client の discovery に任せる。
 
-Claude Code は plugin の install 時に token を尋ねる。入力値は secure storage に保存され、`.mcp.json` にも `settings.json` にも書かれない。
+Claude Code:
 
-Codex は `STELE_TOKEN` 環境変数から読む。画面へ表示しない入力例:
+1. `/mcp` を開く
+2. `stele` を選び、認証を開始
+3. browser で Stele にログイン
+4. Workspace と `read` / `suggest` / `interact` / `archive` capability を確認して承認
+
+Codex:
 
 ```bash
-read -rs STELE_TOKEN
-export STELE_TOKEN
+codex mcp login stele
 ```
 
-token を command line 引数へ書かない。Claude Code の `claude plugin install --config STELE_TOKEN=...` は値が argv に残るため、対話入力または `/plugin configure stele@stele` を使う。
+認証解除は Claude Code の `/mcp` にある Clear authentication、Codex は `codex mcp logout stele`。Stele 側は `/settings/security` から client 単位で解除できる。
 
-## plugin を使わずに接続する
+## plugin を使わずに OAuth 接続する
 
 plugin を導入しない client では MCP server を手動登録する。Claude Code は project scope の `.mcp.json` に Streamable HTTP server を追加する。
 
@@ -106,31 +110,27 @@ plugin を導入しない client では MCP server を手動登録する。Claud
   "mcpServers": {
     "stele": {
       "type": "http",
-      "url": "https://stele-delta.vercel.app/api/mcp",
-      "headers": {
-        "Authorization": "Bearer ${STELE_TOKEN}"
-      }
+      "url": "https://stele-delta.vercel.app/api/mcp"
     }
   }
 }
 ```
 
-Codex では bearer token の値ではなく環境変数名を登録する。
+Codex では URL を登録してから OAuth を開始する。
 
 ```bash
 codex mcp add stele \
-  --url https://stele-delta.vercel.app/api/mcp \
-  --bearer-token-env-var STELE_TOKEN
+  --url https://stele-delta.vercel.app/api/mcp
+codex mcp login stele
 ```
 
-token の平文を source tree、plugin manifest、Marketplace manifest に保存しない。plugin が同梱する MCP 設定は endpoint URL と token の参照先だけを持ち、token の値は client 側の secure storage（Claude Code）または環境変数（Codex）に置く。
+plugin package、MCP manifest、Marketplace manifest に bearer token、Authorization header、token用 userConfig を保存しない。Claude Code / Codex の dialect を個別検証するため MCP 設定ファイルは分けるが、どちらも同じ endpoint URL だけを持つ。
 
-- Claude Code: `.claude-plugin/mcp.json` が `Authorization: Bearer ${user_config.STELE_TOKEN}` を宣言し、`.claude-plugin/plugin.json` の `userConfig.STELE_TOKEN` を `sensitive: true` で受ける
-- Codex: `.codex-plugin/mcp.json` が `bearer_token_env_var: "STELE_TOKEN"` を宣言する
+接続後、Claude Code の `/mcp` または Codex の MCP 一覧で `stele` が connected になり、42 tool が見えることを確認する。
 
-2 client で認証方式が異なるため設定ファイルを分けている。plugin root へ `.mcp.json` を置くと両 client が同じ file を読んで一方が壊れる。
+## API token 互換経路
 
-接続後、Claude Code の `/mcp` または Codex の MCP 一覧で `stele` が connected になり、42 tool が見えることを確認する。詳細は [Claude Code の MCP setup](https://docs.stele.app/docs/mcp/claude-code) と [API token の発行](https://docs.stele.app/docs/mcp/api-token) を参照。
+OAuth を実装しない MCP client と Plan watcher では、Stele の `/settings` で発行した `sk_stele_` API token を引き続き利用できる。token を command line 引数、source tree、plugin manifestへ保存しない。
 
 ## Plan watcher
 

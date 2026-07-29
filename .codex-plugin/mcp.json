@@ -2,8 +2,7 @@
   "mcpServers": {
     "stele": {
       "type": "http",
-      "url": "https://stele-delta.vercel.app/api/mcp",
-      "bearer_token_env_var": "STELE_TOKEN"
+      "url": "https://stele-delta.vercel.app/api/mcp"
     }
   }
 }

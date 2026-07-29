@@ -1,20 +1,11 @@
 {
   "name": "stele",
   "description": "Workflow guidance for using Stele MCP safely and correctly.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Stele"
   },
   "repository": "https://github.com/athena-campus/stele-plugin",
   "keywords": ["stele", "mcp", "documentation", "suggestions"],
-  "mcpServers": "./.claude-plugin/mcp.json",
-  "userConfig": {
-    "STELE_TOKEN": {
-      "type": "string",
-      "title": "Stele API token",
-      "description": "Personal Access Token issued in Stele /settings. Starts with sk_stele_ and is shown only once.",
-      "required": true,
-      "sensitive": true
-    }
-  }
+  "mcpServers": "./.claude-plugin/mcp.json"
 }
