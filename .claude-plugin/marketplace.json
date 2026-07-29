@@ -1,0 +1,19 @@
+{
+  "name": "stele",
+  "owner": {
+    "name": "Stele"
+  },
+  "description": "Official plugin for using Stele with external AI clients.",
+  "plugins": [
+    {
+      "name": "stele",
+      "source": ".",
+      "description": "Workflow guidance for using Stele MCP safely and correctly.",
+      "author": {
+        "name": "Stele"
+      },
+      "repository": "https://github.com/athena-campus/stele-plugin",
+      "keywords": ["stele", "mcp", "documentation", "suggestions"]
+    }
+  ]
+}
