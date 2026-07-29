@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "stele",
-      "source": ".",
+      "source": "./",
       "description": "Workflow guidance for using Stele MCP safely and correctly.",
       "author": {
         "name": "Stele"
