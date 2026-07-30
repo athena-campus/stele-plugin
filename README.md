@@ -150,6 +150,87 @@ node plugins/stele/watcher/watcher.mjs \
 
 `STELE_URL` / `STELE_WORKSPACE` / `STELE_POLL_INTERVAL` も各引数の代わりに利用可能。通知は既定で on。明示的な `--notify` または `--no-notify` で切替可能。実運用の `--status` 既定値は `ready`。Web 承認を使えないローカル検証に限り、`--status proposed` で上書き可能。`--once` は cron と単発検証向け。
 
+### Approval-wait hooks (Claude Code)
+
+Claude Code plugin の `PostToolUse` hook は `create_plan` の応答から Plan ID を取得し、Claude session ごとの sidecar を `~/.stele/claude-sessions/` に保存する。対応する `Stop` hook はモデルの turn 終了後に `list_plans` だけを poll するため、待機中の model token 消費はゼロ。人間が Web で Plan を承認すると Stop hook が turn を自動継続し、Claude Code へ `read_plan` 後の着手を指示する流れ。
+
+この待機は明示的な opt-in。次の環境変数を Claude Code の起動環境へ設定する。
+
+- `STELE_STOP_HOOK=1`: Stop hook の待機を有効化
+- `STELE_API_KEY`: `sk_stele_` API token
+- `STELE_URL`: MCP endpoint。省略時は `http://localhost:3033/api/mcp`
+- `STELE_STOP_HOOK_BUDGET`: 任意。総待機秒数、既定 900、上限 1080
+- `STELE_STOP_HOOK_INTERVAL`: 任意。poll 間隔秒数、既定 25、下限 15
+
+plugin 経由で hooks が読み込まれない環境では、`~/.claude/settings.json` の `hooks` に次を追加する。`/absolute/path/to/stele` はこの plugin checkout の絶対 path に置換する。
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.+__create_plan",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /absolute/path/to/stele/hooks/scripts/stele-capture-plan.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /absolute/path/to/stele/hooks/scripts/stele-wait-approval.mjs",
+            "timeout": 1200
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+watcher は fresh な Plan と同じ ID を持つ sidecar を見つけると、`--on-ready` command に `STELE_SESSION_ID` も渡す。既存 session の再開を優先し、sidecar が無い場合だけ新しい session を起動する例。
+
+```bash
+node watcher.mjs --workspace my-team \
+  --on-ready 'if [ -n "$STELE_SESSION_ID" ]; then claude --resume "$STELE_SESSION_ID" -p "Plan $STELE_PLAN_ID approved — read_plan して着手"; else claude -p "Plan $STELE_PLAN_ID approved — read_plan して着手"; fi'
+```
+
+#### 手動 smoke
+
+1. Stop hook の gate と承認時 block の確認。`smoke-session.json` の `planId` は対象 Workspace にある `proposed` Plan ID に置換し、最初の command が無出力で即終了することを確認する。その後 `STELE_STOP_HOOK=1` と API token を設定して同じ fixture を流し、Web で Plan を承認後に `{"decision":"block",...}` が出ることを確認する。
+
+   ```bash
+   mkdir -p "$HOME/.stele/claude-sessions"
+   chmod 700 "$HOME/.stele/claude-sessions"
+   printf '%s\n' '{"version":1,"entries":[{"planId":"PLAN_ID","workspaceSlug":"my-team","planTitle":"Smoke Plan","createdAt":"2026-07-30T00:00:00.000Z"}]}' > "$HOME/.stele/claude-sessions/smoke-session.json"
+   chmod 600 "$HOME/.stele/claude-sessions/smoke-session.json"
+
+   printf '%s\n' '{"session_id":"smoke-session","stop_hook_active":false}' | \
+     STELE_STOP_HOOK= node hooks/scripts/stele-wait-approval.mjs
+
+   printf '%s\n' '{"session_id":"smoke-session","stop_hook_active":false}' | \
+     STELE_STOP_HOOK=1 STELE_API_KEY="$STELE_API_KEY" \
+     node hooks/scripts/stele-wait-approval.mjs
+   ```
+
+2. watcher の `STELE_SESSION_ID` 連携確認。上と同じ Plan ID の sidecar を置き、watcher の既読 state を分離して `--once` を実行する。出力が `session=smoke-session` になることを確認する。
+
+   ```bash
+   STELE_WATCHER_STATE_FILE="$(mktemp -d)/watcher-state.json" \
+     node watcher/watcher.mjs --workspace my-team --once --no-notify \
+     --on-ready 'printf "session=%s plan=%s\n" "$STELE_SESSION_ID" "$STELE_PLAN_ID"'
+   ```
+
+API token は環境変数だけで渡し、sidecar へ保存しない。sidecar は Plan ID・Workspace slug・Plan title・作成日時だけを保持し、directory mode 0700、file mode 0600 で保存する。presence の lease token など、ほかの secret も sidecar へ書かない。
+
+Codex には Stop hook 相当がないため、承認後の再開は watcher の `--on-ready` fallback を利用する。
+
 ### 承認後に Claude Code を起動する
 
 外部 command の実行は `--on-ready` 指定時だけの opt-in。watcher は command ごとに `STELE_PLAN_ID` / `STELE_PLAN_TITLE` / `STELE_PLAN_URL` / `STELE_PLAN_STATUS` / `STELE_WORKSPACE` を環境変数で渡す。次の prompt template は、Plan 本文の確認、短命 presence、Suggestion / Proposal の承認ゲート、presence 終了までを 1 回の作業として要求する例。

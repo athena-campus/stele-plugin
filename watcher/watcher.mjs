@@ -3,6 +3,10 @@
 import { spawn } from "node:child_process"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
+import {
+  findSessionIdForPlan,
+  sessionStateDirectory,
+} from "../hooks/scripts/stele-session-state.mjs"
 
 const DEFAULT_URL = "http://localhost:3033/api/mcp"
 const DEFAULT_INTERVAL_SECONDS = 60
@@ -132,6 +136,7 @@ function loadConfig(argv, env) {
     notify: parsed.notify,
     once: parsed.once,
     stateFile,
+    sessionStateDir: sessionStateDirectory(env),
   }
 }
 
@@ -325,17 +330,20 @@ async function notifyPlan(plan) {
   }
 }
 
-async function runCommand(config, plan, url) {
+async function runCommand(config, plan, url, sessionId) {
+  const childEnv = { ...process.env }
+  delete childEnv.STELE_SESSION_ID
   const child = spawn(config.command, {
     shell: true,
     stdio: "inherit",
     env: {
-      ...process.env,
+      ...childEnv,
       STELE_PLAN_ID: plan.id,
       STELE_PLAN_TITLE: plan.title,
       STELE_PLAN_URL: url,
       STELE_PLAN_STATUS: plan.status,
       STELE_WORKSPACE: config.workspace,
+      ...(sessionId ? { STELE_SESSION_ID: sessionId } : {}),
     },
   })
   activeChild = child
@@ -373,7 +381,9 @@ async function handlePlan(config, plan, shouldStop) {
 
   if (!config.command || shouldStop()) return
   try {
-    await runCommand(config, plan, url)
+    const sessionId = await findSessionIdForPlan(config.sessionStateDir, plan.id)
+    if (shouldStop()) return
+    await runCommand(config, plan, url, sessionId)
   } catch (error) {
     console.warn(`[stele-watcher] command warning: ${error.message}`)
   }
