@@ -14,7 +14,9 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 - Require `<name>` to be one kebab-case path segment.
 - Reserve deeper paths below `skills/`. Skip Documents such as `skills/group/name` and report them; never materialize them.
 - Require Document frontmatter `description`. List a Document without it as invalid and never materialize it.
-- Treat frontmatter `version` as an optional, human-managed semver.
+- Treat frontmatter `description` and `version` as human-owned metadata. Treat `version` as an optional semver.
+- Never attempt to write frontmatter through MCP mutation tools. `create_suggestion` and `create_draft_new_document` do not carry it; Suggestions carry body content only.
+- Recommend registering `description` and `version` as Workspace text Properties. Ask owners to edit them in the Properties panel, which writes their values to Document frontmatter.
 - Treat the Document body as the skill body Markdown.
 - Do not confuse frontmatter semver with the numeric Document `version` returned by `read_document`.
 
@@ -91,18 +93,20 @@ Never overwrite a local skill lacking the `stele-skill-sync provenance` block. N
 
 ### Update an existing team skill
 
-1. Validate the target as `skills/<name>` and require a local `description`.
+1. Validate the target as `skills/<name>`.
 2. Call `read_document` on `skills/<name>` immediately before rebuilding the proposal.
-3. Rebuild the complete skill body and frontmatter against the returned current state.
-4. Choose and bump the human-managed frontmatter semver; if it is absent or the release increment is unclear, ask the user for the next semver.
-5. Call `create_suggestion` for that one existing Document with the exact returned numeric `version` as `base_version`.
-6. On `DOCUMENT_CHANGED`, call `read_document` again, rebuild the complete proposal against the latest content and frontmatter, and retry with the new `version` as `base_version`.
+3. Rebuild the complete skill body against the returned current content. Put body content only in `proposed_content`.
+4. Call `create_suggestion` for that one existing Document with the exact returned numeric `version` as `base_version`.
+5. When a semver change is warranted, state the intended semver and its reason in the Suggestion `message`, and ask a human to update the `version` frontmatter after acceptance.
+6. On `DOCUMENT_CHANGED`, call `read_document` again, rebuild the complete body against the latest content, and retry with the new `version` as `base_version`.
 
 Never keep stale proposed content and replace only `base_version`. State that acceptance belongs to a human Workspace owner.
 
 ### Publish a new team skill
 
-Validate the local skill name as one kebab-case segment and require frontmatter `description`. Keep frontmatter semver optional.
+Validate the local skill name as one kebab-case segment. Treat any local `description` or `version` as reviewer context only; do not send local frontmatter through the tools.
+
+State in the Proposal message or change-group intent that an owner must set `description`, and may set `version`, in the Properties panel after acceptance.
 
 Use only this sequence:
 
@@ -111,7 +115,9 @@ Use only this sequence:
 3. Call `preview_proposal` and inspect the full result.
 4. Call `submit_proposal`.
 
-Do not claim that submission creates the Document. The Document is created only if a human Workspace owner accepts the resulting Suggestion. Tell the user that teammates receive the skill on their next confirmed sync after acceptance.
+`create_draft_new_document` cannot set frontmatter. After a human Workspace owner accepts the resulting Suggestion, the new Document starts with empty frontmatter and is intentionally not yet distributable. It remains invalid under discovery until an owner sets `description` in the Properties panel. Treat content approval and distribution blessing as two deliberate human gates.
+
+Do not claim that submission creates the Document. The Document is created only after acceptance. Tell the user that teammates receive the skill on their next confirmed sync only after an owner sets `description`.
 
 ## Remove retired materializations
 
