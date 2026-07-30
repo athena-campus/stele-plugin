@@ -87,7 +87,17 @@ Show the complete proposed file for every new skill. Show a full diff before eve
 
 Ask for explicit user confirmation covering those exact writes. Write nothing before confirmation. After confirmation, write only the confirmed paths and content; if the destination changed meanwhile, stop, show a new diff, and ask again.
 
+The user may confirm only a subset of the proposed writes. Write only the confirmed subset. Skills left unselected remain `new` or `updated` in future discovery reports; this is expected, not an error.
+
 Never overwrite a local skill lacking the `stele-skill-sync provenance` block. Never materialize outside the `stele-<workspace>-` namespace.
+
+## Apply skills in-band without a filesystem
+
+Use in-band mode when the environment does not manage a project filesystem with local skill directories, or when the user has not opted into materialization.
+
+At session start for work involving the Workspace, call `list_documents` with `filters.prefix: "skills"`. Apply the same validity rules as discovery: skip reserved deeper paths, then call `read_document` for each valid skill and require frontmatter `description`. Use only accepted Document content returned by `read_document`; never use pending Suggestion or Proposal content.
+
+Apply the skill bodies as Workspace-scoped guidance for the current session only. Write no files and persist nothing between sessions. Give locally-authored skills and explicit user instructions precedence, exactly as in materialize mode. Tell the user which Workspace skills are active in-band when asked.
 
 ## Share local skills with the Workspace
 

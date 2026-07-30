@@ -88,6 +88,8 @@ Codex で手動配置する場合は、同じ `SKILL.md` を `$CODEX_HOME/skills
 
 local skill の共有は、既存 Document なら Suggestion、新規 Document なら Proposal として提出する。反映可否は Workspace owner の判断。確認なしにローカルへ書かず、Stele で承認済みの Document version のみ配布する。Workspace skill はその Workspace に関する作業だけへ適用し、利用者自身の local skill を優先する。
 
+project filesystem を持たない client（Claude Cowork / Desktop など）では、team skill を local へ同期しない。接続時に MCP で `skills/<name>` の承認済み Document を読み、session 限りの in-band context として適用する。ファイル作成も session 間の永続化も行わず、local skill と明示的な利用者指示を優先する。
+
 ## OAuth 接続
 
 Stele MCP は RFC 9728 Protected Resource Metadata と Supabase Auth OAuth 2.1 Server を公開する。plugin は Authorization header や固定 token を設定せず、client の discovery に任せる。

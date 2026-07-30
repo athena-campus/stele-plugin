@@ -79,6 +79,8 @@ The only new-Document path is `create_proposal` → `create_draft_new_document` 
 
 For a nested new Document, pass its complete slash-separated path in the argument still named `slug`. That argument name is retained for compatibility. Do not use a title as a path, and do not create both a Document path and one of its prefixes as another Document.
 
+When choosing a path for a new Document, reuse an existing path prefix whenever the Document belongs to an area that already has one. Inspect current paths with `list_documents` before deciding. Do not invent a sibling variant of an existing prefix, such as `specs/...` when `spec/...` exists.
+
 A draft Proposal is private to its author. Only that author can list, read, update, or submit it; other users receive NotFound rather than permission details.
 
 `set_proposal_groups` replaces the entire group list. Drafts omitted from every `draftIds` array remain ungrouped, an empty `groups` array removes all groups, and one draft must not appear in multiple groups. Grouping is available only while the author-owned Proposal remains in `draft` status; Stele does not infer groups after submission.
