@@ -1,8 +1,8 @@
 # Stele MCP client plugin
 
-Stele MCP の tool を正しい順序で使うための Claude Code / Codex plugin。Document の探索と再取得、Plan・Suggestion・Proposal の連携、変更グループ、楽観ロックの回復、Note・Property・Template・短命 presence・変更 feed・role 境界を `stele-mcp` skill として配布する。
+Stele MCP の tool を正しい順序で使うための Claude Code / Codex plugin。Document の探索と再取得、Plan・Suggestion・Proposal の連携、変更グループ、楽観ロックの回復、Note・Property・Template・短命 presence・変更 feed・role 境界を `stele-mcp` skill として配布する。Workspace の team skill を local と安全に同期する `stele-skill-sync` skill も同梱する。
 
-plugin は Stele MCP server の接続設定と `stele-mcp` skill をまとめて配る。接続設定は endpoint URL だけを持ち、Claude Code / Codex が Stele の OAuth 2.1 metadata を discovery して browser consent を開始する。API token は OAuth を使えない client と watcher の互換経路としてのみ維持する。
+plugin は Stele MCP server の接続設定と 2 つの skill をまとめて配る。接続設定は endpoint URL だけを持ち、Claude Code / Codex が Stele の OAuth 2.1 metadata を discovery して browser consent を開始する。API token は OAuth を使えない client と watcher の互換経路としてのみ維持する。
 
 ## Marketplace から導入する
 
@@ -81,6 +81,12 @@ Codex で手動配置する場合は、同じ `SKILL.md` を `$CODEX_HOME/skills
 配置後、新しい Claude Code / Codex session を開始する。
 
 `SKILL.md` の更新時は、公開 docs の ja/en `client-skill.mdx` に埋め込んだ全文も同期する。
+
+## Team skill を同期する
+
+`stele-skill-sync` は、Workspace の `skills/<name>` Document を探索し、project の `.claude/skills/stele-<workspace>-<name>/` と、存在する場合は `.agents/skills/stele-<workspace>-<name>/` へ同一内容で同期する skill。新規・更新・local 変更・削除を同期前に分類し、新規は全文、更新は差分を提示する。同期状態は各 `SKILL.md` の provenance block だけに保持する。
+
+local skill の共有は、既存 Document なら Suggestion、新規 Document なら Proposal として提出する。反映可否は Workspace owner の判断。確認なしにローカルへ書かず、Stele で承認済みの Document version のみ配布する。Workspace skill はその Workspace に関する作業だけへ適用し、利用者自身の local skill を優先する。
 
 ## OAuth 接続
 
