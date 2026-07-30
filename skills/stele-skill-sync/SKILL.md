@@ -22,12 +22,14 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 
 ### Read the Workspace skill set
 
-1. Call `list_documents` with `filters.prefix: "skills/"` and `filters.includeArchived: true`.
+1. Call `list_documents` with `filters.prefix: "skills"` and `filters.includeArchived: true`.
 2. Use each returned canonical `path`; treat `slug` only as a same-value compatibility field.
 3. Reject candidates whose path is not exactly `skills/<name>` with one kebab-case name segment.
 4. Call `read_document` for each valid, unarchived candidate needed for validation or comparison.
 5. Use `read_document` for `content`, `frontmatter`, and the current numeric `version`; `list_documents` does not return them.
 6. Record archived candidates from `archivedAt` without treating them as distributable content.
+
+Pass the prefix without a trailing slash; a trailing slash is rejected as an invalid path prefix.
 
 ### Inspect local materializations
 
