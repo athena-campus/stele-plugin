@@ -84,7 +84,7 @@ Codex で手動配置する場合は、同じ `SKILL.md` を `$CODEX_HOME/skills
 
 ## Team skill を同期する
 
-`stele-skill-sync` は、owner が現行 Version と digest を確認した `skills/<name>` Document だけを探索し、project の `.claude/skills/stele-<workspace>-<name>/` と、存在する場合は `.agents/skills/stele-<workspace>-<name>/` へ同一内容で同期する skill。対象 Document の `required_skills` による選択同期、新規・更新・local 変更・削除の事前分類、同期後の `report_skill_sync` 自己申告に対応する。同期状態は各 `SKILL.md` の provenance block だけに保持し、本文・差分・local path は Stele へ送信しない。
+`stele-skill-sync` は、owner が最後に確認した exact snapshot を `skills/<name>` Document から探索し、現行版が `needs_review` でも確認済み版の配布を継続しながら、project の `.claude/skills/stele-<workspace>-<name>/` と、存在する場合は `.agents/skills/stele-<workspace>-<name>/` へ同一内容で同期する skill。対象 Document の `required_skills` による選択同期、新規・更新・local 変更・削除の事前分類、同期後の `report_skill_sync` 自己申告に対応する。同期状態は各 `SKILL.md` の provenance block だけに保持し、本文・差分・local path は Stele へ送信しない。
 
 local skill の共有は、既存 Document なら Suggestion、新規 Document なら Proposal として提出する。反映可否は Workspace owner の判断。確認なしにローカルへ書かず、Stele で承認済みの Document version のみ配布する。Workspace skill はその Workspace に関する作業だけへ適用し、利用者自身の local skill を優先する。
 

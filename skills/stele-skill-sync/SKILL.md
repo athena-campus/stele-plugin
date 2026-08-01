@@ -15,8 +15,8 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 - Reserve deeper paths below `skills/`. Skip Documents such as `skills/group/name` and report them; never materialize them.
 - Require Document frontmatter `description`. `list_workspace_skills` reports a Document without it as invalid and never returns its body for distribution.
 - Treat frontmatter `description` and `version` as human-owned metadata. Treat `version` as an optional semver.
-- Never attempt to write frontmatter through MCP mutation tools. `create_suggestion` and `create_draft_new_document` do not carry it; Suggestions carry body content only.
-- Ask a Workspace owner to set `description` and optional `version` in the Skill distribution section on the Document, save it, then explicitly confirm the current Document Version.
+- Use `create_suggestion.proposed_frontmatter` only to propose intentional `description` or `version` changes. It is a patch (`null` deletes a key); the owner still decides both metadata and distribution.
+- Ask a Workspace owner to keep the default-on Skill distribution confirmation when accepting or editing-and-accepting a valid Skill Suggestion. If they turn it off or edit the Document directly, ask them to confirm the current Document Version explicitly afterward.
 - Treat the Document body as the skill body Markdown.
 - Do not confuse frontmatter semver with the numeric Document `version` returned by `read_document`.
 
@@ -25,8 +25,8 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 ### Read the Workspace skill set
 
 1. Call `list_workspace_skills` for the Workspace. Pass `include_invalid: true` when producing an owner-facing governance report.
-2. Use only entries with `distributable: true`. They include canonical `path`, accepted body, frontmatter, numeric Document Version, owner `confirmation_id`, and `digest`.
-3. Treat invalid or unconfirmed entries as attention items. Never obtain their body through `read_document` for distribution.
+2. Use only entries with `distributable: true`. Their body, frontmatter, `document_version`, and `digest` are one exact distributed snapshot; `current_document_version` / `current_digest` describe the live Document, while `confirmed_document_version` / `confirmed_digest` describe the owner ledger.
+3. A `needs_review` entry can remain distributable from its last confirmed snapshot. Treat invalid, unconfirmed, and non-distributable legacy entries as attention items. Never substitute current `read_document` content for the distributed snapshot.
 4. When working on one Document, pass its exact path as `document`; this resolves its `required_skills` relation and returns only that subset.
 5. If the Document declares no required skills, say so. Do not silently activate every Workspace skill.
 
@@ -45,7 +45,7 @@ Report a drift table before proposing any action. Allow multiple findings for on
 | Class | Evidence | Required report |
 |---|---|---|
 | new | Workspace Document exists; no local materialization exists | Show the complete materialized file |
-| updated | Current Document `version` is greater than the recorded source version | Show a diff from the local file to the proposed materialization |
+| updated | Distributed `document_version` is greater than the recorded source version | Show a diff from the local file to the proposed materialization |
 | locally modified | Local content differs from what its provenance implies, or integrity is uncertain | Preserve the file; show the diff and mark the uncertainty |
 | removed | Source Document is archived or no longer appears in the complete listing | Propose deletion of the namespaced local directory |
 
@@ -109,7 +109,7 @@ The report is a self-report by the authenticated MCP connection, not physical-de
 
 Use in-band mode when the environment does not manage a project filesystem with local skill directories, or when the user has not opted into materialization.
 
-At session start for work involving the Workspace, call `list_workspace_skills`. When a target Document is known, pass its exact path so only `required_skills` are returned. Use only entries marked distributable; never use pending, unconfirmed, or invalid content.
+At session start for work involving the Workspace, call `list_workspace_skills`. When a target Document is known, pass its exact path so only `required_skills` are returned. Use only entries marked distributable. A distributable `needs_review` entry means "use this returned last-confirmed snapshot," not "use the current Document." Never use unconfirmed, invalid, or non-distributable content.
 
 Apply the skill bodies as Workspace-scoped guidance for the current session only. Write no files and persist nothing between sessions. Give locally-authored skills and explicit user instructions precedence, exactly as in materialize mode. Tell the user which Workspace skills are active in-band when asked. After activating each one, call `report_skill_sync` with `mode: "in_band"`, `observation: "present"`, its confirmation ID, and the returned source digest.
 
@@ -119,9 +119,9 @@ Apply the skill bodies as Workspace-scoped guidance for the current session only
 
 1. Validate the target as `skills/<name>`.
 2. Call `read_document` on `skills/<name>` immediately before rebuilding the proposal.
-3. Rebuild the complete skill body against the returned current content. Put body content only in `proposed_content`.
+3. Rebuild the complete skill body against the returned current content. Put body content in `proposed_content`; when an intentional `description` or `version` change is part of the same review, put only that patch in `proposed_frontmatter`.
 4. Call `create_suggestion` for that one existing Document with the exact returned numeric `version` as `base_version`.
-5. When a semver change is warranted, state the intended semver and its reason in the Suggestion `message`, and ask a human to update the `version` frontmatter after acceptance.
+5. When a semver change is warranted, state the intended semver and its reason in the Suggestion `message`; proposing it does not confirm distribution.
 6. On `DOCUMENT_CHANGED`, call `read_document` again, rebuild the complete body against the latest content, and retry with the new `version` as `base_version`.
 
 Never keep stale proposed content and replace only `base_version`. State that acceptance belongs to a human Workspace owner.
