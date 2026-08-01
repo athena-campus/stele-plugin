@@ -13,10 +13,10 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 - Map one skill to one Document at `skills/<name>`.
 - Require `<name>` to be one kebab-case path segment.
 - Reserve deeper paths below `skills/`. Skip Documents such as `skills/group/name` and report them; never materialize them.
-- Require Document frontmatter `description`. List a Document without it as invalid and never materialize it.
+- Require Document frontmatter `description`. `list_workspace_skills` reports a Document without it as invalid and never returns its body for distribution.
 - Treat frontmatter `description` and `version` as human-owned metadata. Treat `version` as an optional semver.
 - Never attempt to write frontmatter through MCP mutation tools. `create_suggestion` and `create_draft_new_document` do not carry it; Suggestions carry body content only.
-- Recommend registering `description` and `version` as Workspace text Properties. Ask owners to edit them in the Properties panel, which writes their values to Document frontmatter.
+- Ask a Workspace owner to set `description` and optional `version` in the Skill distribution section on the Document, save it, then explicitly confirm the current Document Version.
 - Treat the Document body as the skill body Markdown.
 - Do not confuse frontmatter semver with the numeric Document `version` returned by `read_document`.
 
@@ -24,12 +24,11 @@ Treat every team skill as governed Workspace content. Discover first, report dri
 
 ### Read the Workspace skill set
 
-1. Call `list_documents` with `filters.prefix: "skills"` and `filters.includeArchived: true`.
-2. Use each returned canonical `path`; treat `slug` only as a same-value compatibility field.
-3. Reject candidates whose path is not exactly `skills/<name>` with one kebab-case name segment.
-4. Call `read_document` for each valid, unarchived candidate needed for validation or comparison.
-5. Use `read_document` for `content`, `frontmatter`, and the current numeric `version`; `list_documents` does not return them.
-6. Record archived candidates from `archivedAt` without treating them as distributable content.
+1. Call `list_workspace_skills` for the Workspace. Pass `include_invalid: true` when producing an owner-facing governance report.
+2. Use only entries with `distributable: true`. They include canonical `path`, accepted body, frontmatter, numeric Document Version, owner `confirmation_id`, and `digest`.
+3. Treat invalid or unconfirmed entries as attention items. Never obtain their body through `read_document` for distribution.
+4. When working on one Document, pass its exact path as `document`; this resolves its `required_skills` relation and returns only that subset.
+5. If the Document declares no required skills, say so. Do not silently activate every Workspace skill.
 
 Pass the prefix without a trailing slash; a trailing slash is rejected as an invalid path prefix.
 
@@ -70,6 +69,9 @@ stele-skill-sync provenance
 workspace: <workspace>
 path: skills/<name>
 version: <source Document version>
+confirmation-id: <owner confirmation id>
+source-digest: <source canonical digest>
+materialized-digest: <digest of generated YAML name/description plus source body, excluding this provenance block>
 synced-at: <ISO timestamp>
 managed by stele-skill-sync; do not edit manually
 local edits appear as drift and may be overwritten after explicit user confirmation
@@ -81,6 +83,8 @@ locally-authored skills take precedence
 
 Preserve the source body verbatim after the provenance block. Generate one `synced-at` ISO timestamp and use it in both destinations.
 
+Compute `materialized-digest` deterministically from the generated two-field YAML frontmatter (`name`, `description`) plus the source body, without the provenance comment. On later checks, recompute it from the local file. If it differs, classify the file as locally modified and preserve it.
+
 ### Confirm every pull
 
 Show the complete proposed file for every new skill. Show a full diff before every overwrite, including provenance changes. List every destination path and whether it will be created or overwritten.
@@ -91,13 +95,23 @@ The user may confirm only a subset of the proposed writes. Write only the confir
 
 Never overwrite a local skill lacking the `stele-skill-sync provenance` block. Never materialize outside the `stele-<workspace>-` namespace.
 
+### Report the observed result
+
+After every confirmed materialization, call `report_skill_sync` once per Skill with its Workspace, exact Document path, `mode: "materialize"`, `observation: "present"`, owner `confirmation_id`, and `observed_digest`.
+
+- If the recomputed `materialized-digest` matches provenance, report the provenance `source-digest` as `observed_digest`.
+- If it differs, report the recomputed local digest. This records `locally modified` without sending the file, body, diff, or local path to Stele.
+- If a required materialization is absent, report `observation: "missing"` and omit confirmation and digest.
+
+The report is a self-report by the authenticated MCP connection, not physical-device attestation. Never send a connection name or identifier; Stele derives both from authentication.
+
 ## Apply skills in-band without a filesystem
 
 Use in-band mode when the environment does not manage a project filesystem with local skill directories, or when the user has not opted into materialization.
 
-At session start for work involving the Workspace, call `list_documents` with `filters.prefix: "skills"`. Apply the same validity rules as discovery: skip reserved deeper paths, then call `read_document` for each valid skill and require frontmatter `description`. Use only accepted Document content returned by `read_document`; never use pending Suggestion or Proposal content.
+At session start for work involving the Workspace, call `list_workspace_skills`. When a target Document is known, pass its exact path so only `required_skills` are returned. Use only entries marked distributable; never use pending, unconfirmed, or invalid content.
 
-Apply the skill bodies as Workspace-scoped guidance for the current session only. Write no files and persist nothing between sessions. Give locally-authored skills and explicit user instructions precedence, exactly as in materialize mode. Tell the user which Workspace skills are active in-band when asked.
+Apply the skill bodies as Workspace-scoped guidance for the current session only. Write no files and persist nothing between sessions. Give locally-authored skills and explicit user instructions precedence, exactly as in materialize mode. Tell the user which Workspace skills are active in-band when asked. After activating each one, call `report_skill_sync` with `mode: "in_band"`, `observation: "present"`, its confirmation ID, and the returned source digest.
 
 ## Share local skills with the Workspace
 
@@ -116,7 +130,7 @@ Never keep stale proposed content and replace only `base_version`. State that ac
 
 Validate the local skill name as one kebab-case segment. Treat any local `description` or `version` as reviewer context only; do not send local frontmatter through the tools.
 
-State in the Proposal message or change-group intent that an owner must set `description`, and may set `version`, in the Properties panel after acceptance.
+State in the Proposal message or change-group intent that an owner must set `description`, may set `version`, save the Document, and confirm its current Version in the Skill distribution section after acceptance.
 
 Use only this sequence:
 
@@ -125,7 +139,7 @@ Use only this sequence:
 3. Call `preview_proposal` and inspect the full result.
 4. Call `submit_proposal`.
 
-`create_draft_new_document` cannot set frontmatter. After a human Workspace owner accepts the resulting Suggestion, the new Document starts with empty frontmatter and is intentionally not yet distributable. It remains invalid under discovery until an owner sets `description` in the Properties panel. Treat content approval and distribution blessing as two deliberate human gates.
+`create_draft_new_document` cannot set frontmatter. After a human Workspace owner accepts the resulting Suggestion, the new Document starts with empty frontmatter and is intentionally not yet distributable. It remains invalid under discovery until an owner sets `description`, saves it, and explicitly confirms the current Version. Treat content approval and distribution blessing as two deliberate human gates.
 
 Do not claim that submission creates the Document. The Document is created only after acceptance. Tell the user that teammates receive the skill on their next confirmed sync only after an owner sets `description`.
 
