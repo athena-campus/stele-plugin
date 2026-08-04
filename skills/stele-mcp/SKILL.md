@@ -55,14 +55,14 @@ Read the Document immediately before drafting, then call `create_suggestion` wit
 
 ### Propose a Document path move
 
-External AI never changes a Document path directly. Use this sequence for one Document or a derived Folder prefix:
+External AI never changes a Document path directly. Use this sequence for one Document or an existing persistent Folder path:
 
 1. Call `list_documents` and use returned canonical `path` values. Use `filters.prefix` when inspecting a Folder prefix and set `filters.includeArchived: true` so the proposed scope is visible.
 2. Call `suggest_move_document_path` with `workspace`, exact `from_path`, exact `to_path`, and an explanatory `message`. Pass `planId` only when the move belongs to a verified Plan.
 3. Treat the result as pending human review. Only a Workspace owner can accept or dismiss the path Suggestion; path Suggestions do not support edited acceptance.
 4. After resolution, call `read_suggestion_result`, then list or read the Document again and continue with the returned current `path`.
 
-A Folder is derived from Document path prefixes, not stored separately. A prefix move includes active and archived Documents below it. Do not invent empty Folders, mutate each child separately, or assume that an old path can be assigned to another Document.
+A Folder is a persistent Workspace entity with a stable identity, a user-facing name, and an automatically assigned canonical path. Empty and nested Folders are valid, and a Folder-specific permission or archive state does not exist; Workspace role applies. A Folder-path move includes active and archived Documents below it. A zero-result `filters.prefix` query does not mean that the Folder is absent. Do not mutate each child separately or assume that an old path can be assigned to another Document; Folder and Document path maintenance is atomic.
 
 ### Create or update through a Proposal
 
