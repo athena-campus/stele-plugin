@@ -2,6 +2,8 @@
 // Result publication remains an explicit agent MCP call, never a Stop side effect.
 const starts = new Set(['user_prompt_submit', 'pre_tool_use', 'post_tool_use', 'post_tool_use_failure']);
 const ends = new Set(['stop', 'stop_failure', 'stop_cancelled', 'session_end', 'notification']);
+const tools = new Set(['pre_tool_use', 'post_tool_use', 'post_tool_use_failure']);
+const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 300 ? value : null;
 
 function safeText(value, secrets) {
   let text = JSON.stringify(value);
@@ -10,12 +12,30 @@ function safeText(value, secrets) {
 }
 
 export async function processEvent({ config, event, state: previous = {}, call, now = Date.now(), secrets = [] }) {
-  const state = { ...previous, seen: [...(previous.seen ?? [])] };
+  const state = { ...previous, seen: [...(previous.seen ?? [])], toolTurns: [...(previous.toolTurns ?? [])] };
   let output = null, warning;
   const result = () => ({ state, output, ...(warning ? { warning } : {}) });
   const kind = event.hookEventName;
-  const turn = typeof event.promptId === 'string' && event.promptId.length <= 300 ? event.promptId : null;
+  let turn = identifier(event.promptId);
   if (event.subagentType || (!starts.has(kind) && !ends.has(kind))) return result();
+  // When a Grok tool event omits promptId, bind at PreToolUse only:
+  // a late post event must never borrow whichever turn happens to be current.
+  const toolId = identifier(event.toolUseId);
+  if (tools.has(kind) && toolId) {
+    const binding = state.toolTurns.find(([id]) => id === toolId);
+    if (binding) {
+      if (binding[1] !== state.turn || state.finished) return result();
+      if (turn && turn !== binding[1]) return result();
+      turn ??= binding[1];
+    } else if (kind === 'pre_tool_use') {
+      turn ??= state.finished ? null : identifier(state.turn);
+      if (turn) state.toolTurns = [...state.toolTurns, [toolId, turn]].slice(-128);
+    }
+  }
+  if (tools.has(kind) && !turn) {
+    warning = 'tool_turn_unavailable';
+    return result();
+  }
   const invoke = (name, args = {}) => call(name, { workspaceId: config.workspaceId, ...args });
   // Stele's public Presence timestamps are Unix seconds.
   const expires = () => typeof state.expiresAt === 'number' ? state.expiresAt * 1_000 : NaN;

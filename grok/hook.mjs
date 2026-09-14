@@ -19,6 +19,7 @@ try {
   const event = JSON.parse(raw);
   if (typeof event.sessionId !== 'string' || !event.sessionId || event.sessionId.length > 300) throw new Error('session_missing');
   if (typeof event.promptId === 'string') event.promptId = hash(event.promptId);
+  if (typeof event.toolUseId === 'string') event.toolUseId = hash(event.toolUseId);
   const root = await realpath(config.projectRoot);
   const cwd = await realpath(event.cwd);
   const relative = path.relative(root, cwd);

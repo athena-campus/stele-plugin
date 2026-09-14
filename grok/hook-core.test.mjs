@@ -81,3 +81,47 @@ test('network failure is visible but does not block Grok or copy raw errors', as
   assert.equal(result.warning, 'presence_unavailable');
   assert.doesNotMatch(JSON.stringify(result), /raw-secret|private-host/);
 });
+
+test('tool events without promptId deliver context through their observed pre-tool binding', async () => {
+  const f = fixture();
+  await f.run('user_prompt_submit');
+  await f.run('pre_tool_use', null, { toolUseId: 'call-a' });
+  const context = await f.run('post_tool_use', null, { toolUseId: 'call-a' });
+  assert.match(context.output?.hookSpecificOutput.additionalContext ?? '', /synthetic numbers are 2 and 3/);
+  assert.equal((await f.run('post_tool_use', null, { toolUseId: 'call-a' })).output, null);
+  await f.run('stop');
+  assert.equal(f.calls.filter(c => c.name === 'finish_work_session').length, 1);
+});
+
+test('late or orphan tool events cannot borrow a newer turn or restart a finished turn', async () => {
+  const f = fixture();
+  await f.run('pre_tool_use', null, { toolUseId: 'before-start' });
+  assert.equal(f.calls.length, 0);
+  await f.run('user_prompt_submit');
+  await f.run('pre_tool_use', null, { toolUseId: 'old-call' });
+  await f.run('user_prompt_submit', 'turn-b');
+  await f.run('pre_tool_use', null, { toolUseId: 'old-call' });
+  const before = f.calls.length;
+  assert.equal((await f.run('post_tool_use', null, { toolUseId: 'old-call' })).output, null);
+  assert.equal((await f.run('post_tool_use', null, { toolUseId: 'orphan' })).output, null);
+  assert.equal(f.calls.length, before);
+  await f.run('pre_tool_use', null, { toolUseId: 'new-call' });
+  assert((await f.run('post_tool_use_failure', null, { toolUseId: 'new-call' })).output);
+  await f.run('stop', 'turn-b');
+  const stopped = f.calls.length;
+  await f.run('pre_tool_use', null, { toolUseId: 'after-stop' });
+  await f.run('post_tool_use', null, { toolUseId: 'after-stop' });
+  assert.equal(f.calls.length, stopped);
+});
+
+test('an old tool binding cannot restart its turn after prompt deduplication history expires', async () => {
+  const f = fixture();
+  await f.run('user_prompt_submit', 'old');
+  await f.run('pre_tool_use', null, { toolUseId: 'old-call' });
+  for (let i = 0; i < 32; i++) await f.run('user_prompt_submit', `new-${i}`);
+  const before = f.calls.length;
+  const result = await f.run('post_tool_use', null, { toolUseId: 'old-call' });
+  assert.equal(result.state.turn, 'new-31');
+  assert.equal(result.output, null);
+  assert.equal(f.calls.length, before);
+});

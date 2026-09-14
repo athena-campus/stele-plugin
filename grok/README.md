@@ -2,6 +2,8 @@
 
 既存Grok CLIから、選んだTaskと資料を読み、成果をSteleへ返す接続。専用Runnerや常駐サーバーの追加は不要。対象はGrok 1.0.30。公開tool schemaは接続先の `tools/list` を正とする。
 
+現在は検証中。2026-09-15の合成実行ではTask読取は成功したが、追加contextが届かず成果報告には至っていない。toolイベントのturn識別子が欠ける場合の互換処理を追加し、ローカルテストを通した。実Grokでの修正後の往復確認は別途必要。
+
 ## 初回設定
 
 1. Steleの「設定 → MCP接続」でGrok用の接続を作り、必要なWorkspaceだけを許可する。活動と資料参照には `read`、成果報告には `interact` が必要。短い有効期限から始める。
@@ -39,6 +41,7 @@ HUBで資料を確認し、Task detailで頼む内容と成果の判定条件を
 ## 活動表示と失敗回復
 
 - UserPromptSubmitとtool操作でPresenceを開始・延長し、停止・失敗・中断・SessionEndで終了する。遅延した別promptIdの終了通知は現在の作業を閉じない。直近32turnを重複抑制する。
+- toolイベントにpromptIdがない場合、PreToolUseでtoolUseIdと開始済みのturnを対応づける（直近128call）。PostToolUse単独では現在turnを借用しない。終了済み・別turnの既知callは無視する。識別子なしの未観測PreToolUse自体が次turnへ遅れて届く場合は区別できないため、同じsessionでは前の依頼の終了を待って次を送る。
 - tool操作が5分以上ない推論、強制終了、通信断ではPresenceが期限切れになる。Taskの「進行中」は別の記録として残る。別のStop gateとの併用では継続と最終停止を区別できないため、活動表示を完了判定に使わない。
 - 通信は全体10秒・各request 2.5秒で打ち切り、Grok操作は継続する。hook unavailableが出たら接続・有効期限・grantを確認し、次の依頼で読み直す。失敗を成功として報告しない。
 - 強制killでstateDirectoryに `.lock` が残った場合、対象Grok/hookが終了していることを確認して、そのsessionのlockだけを削除する。ほかのsessionやcredentialは消さない。残ったPresenceは5分で失効する。
@@ -51,3 +54,5 @@ HUBで資料を確認し、Task detailで頼む内容と成果の判定条件を
 ## 開発確認
 
 `node --test grok/*.test.mjs`。実Grok往復は親repositoryの `apps/api/scripts/verify-live-grok-hooks.mjs` を使う。事前にCLI/model/inspectを確認し、合成資料だけをGrokへ送る。global設定は変更しない。
+
+`STELE_QA_REPLAY_HOOKS_ONLY=1`ではGrok/modelを起動せず、合成イベントをhook実行ファイルへ送り、実ローカルMCPでcontextとPresenceを検証する。この結果は実Grokの受信・成果報告の証拠にはならない。通常の実Grok検証はstrictのまま。明示承認がある単発合成検証だけ `STELE_QA_ALLOW_UNSANDBOXED=1` を指定でき、使用済みreceiptを上書きして再実行しない。
