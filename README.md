@@ -1,5 +1,7 @@
 # Stele MCP client plugin
 
+Grokのhooks＋MCP連携は [Grok接続ガイド](grok/README.md) を参照する。公開schemaを正とし、下記の旧local API-token sliceのtool制限を新しいconnection-based接続へ適用しない。以下は既存Claude/Codex配布物に残る旧sliceの説明であり、Stele全体の現在の機能一覧ではない。
+
 Stele MCP の現行 local API-token slice を使う Claude Code / Codex plugin。接続設定と `stele-mcp` skill を配布する。`stele-skill-sync` は同梱するが、現行 slice では未対応。
 
 ## 現行の接続契約
