@@ -2,7 +2,7 @@
 
 既存Grok CLIから、選んだTaskと資料を読み、成果をSteleへ返す接続。専用Runnerや常駐サーバーの追加は不要。対象はGrok 1.0.30。公開tool schemaは接続先の `tools/list` を正とする。
 
-現在は検証中。2026-09-15の合成実行ではTask読取は成功したが、追加contextが届かず成果報告には至っていない。toolイベントのturn識別子が欠ける場合の互換処理を追加し、ローカルテストを通した。実Grokでの修正後の往復確認は別途必要。
+2026-09-15、Grok 1.0.30 / grok-4.6で、hookから選択資料を受け取り、成果をTaskへ1件返す合成検証を確認済み。Taskの完了判断は人間に残る。継続利用の実績とProductionでの動作は別途確認する。
 
 ## 初回設定
 
@@ -55,4 +55,4 @@ HUBで資料を確認し、Task detailで頼む内容と成果の判定条件を
 
 `node --test grok/*.test.mjs`。実Grok往復は親repositoryの `apps/api/scripts/verify-live-grok-hooks.mjs` を使う。事前にCLI/model/inspectを確認し、合成資料だけをGrokへ送る。global設定は変更しない。
 
-`STELE_QA_REPLAY_HOOKS_ONLY=1`ではGrok/modelを起動せず、合成イベントをhook実行ファイルへ送り、実ローカルMCPでcontextとPresenceを検証する。この結果は実Grokの受信・成果報告の証拠にはならない。通常の実Grok検証はstrictのまま。明示承認がある単発合成検証だけ `STELE_QA_ALLOW_UNSANDBOXED=1` を指定でき、使用済みreceiptを上書きして再実行しない。
+`STELE_QA_REPLAY_HOOKS_ONLY=1`ではGrok/modelを起動せず、合成イベントをhook実行ファイルへ送り、実ローカルMCPでcontextとPresenceを検証する。この結果は実Grokの受信・成果報告の証拠にはならない。通常の実Grok検証はstrictのまま。明示承認がある単発合成検証だけ `STELE_QA_ALLOW_UNSANDBOXED=1` を指定でき、使用済みreceiptを上書きして再実行しない。ユーザーがセッション全体の解除を明示承認した場合に限り、`STELE_QA_SANDBOX_APPROVAL=session`を併用できる。各実行のreceiptを別々に保存し、通常設定へ解除を残さない。
