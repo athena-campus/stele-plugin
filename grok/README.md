@@ -6,6 +6,8 @@
 
 ## 初回設定
 
+2026-10-14 時点で Hosted の Stele endpoint は未提供（remote deploy 未実施）。実際に起動した環境の接続情報を管理者から取得する。Remote MCP の第一経路は OAuth 2.1（複数 Workspace / capability consent）。この環境変数方式の補助は connection credential（prefix `sk_stele_conn_`）を使い、旧 Workspace API token（prefix `sk_stele_`）と旧 single-Workspace OAuth fallback は受理されない。公開 URL を推測しない。
+
 1. Steleの「設定 → MCP接続」でGrok用の接続を作り、必要なWorkspaceだけを許可する。活動と資料参照には `read`、成果報告には `interact` が必要。短い有効期限から始める。
 2. 下の設定JSONをローカルに作る。projectRootはGit repositoryのrootを指定する（Grok 1.0.30はGit管理外のproject hooksを読み込まない）。credentialはJSONへ書かず、起動するshellの環境変数へ渡す。
 3. `node plugins/stele/grok/configure.mjs /absolute/path/stele-grok.json` を実行する。既存 `.grok/config.toml` や `hooks/stele.json` は上書きしない。既存設定へ加える場合は `--preview` の出力からMCP節とhooksを手動で併合する。
@@ -14,7 +16,7 @@
 ```json
 {
   "version": 1,
-  "endpoint": "http://127.0.0.1:8788/api/mcp",
+  "endpoint": "<管理者から取得した実環境の接続URL>",
   "workspaceId": "11111111-1111-4111-8111-111111111111",
   "taskId": "22222222-2222-4222-8222-222222222222",
   "documentPaths": ["project/spec"],
@@ -24,7 +26,7 @@
 }
 ```
 
-UUIDは実際の対象に置き換える。必要な場合だけ `planId` を追加する。資料は最大3件。外部接続はHTTPS、HTTPはloopbackのみ。stateDirectoryはprojectの外にある本人所有の専用directory（権限700）を使う。leaseを含むstate fileは600で保存し、credentialは保存しない。設定・state・ログをGitへ追加しない。
+endpointとUUIDは実際の対象に置き換える。`list_workspaces` の返す `id` を `workspaceId` に使い、接続先の公開 schema を確認する。必要な場合だけ `planId` を追加する。資料は最大3件。外部接続はHTTPS、HTTPはloopbackのみ。stateDirectoryはprojectの外にある本人所有の専用directory（権限700）を使う。leaseを含むstate fileは600で保存し、credentialは保存しない。設定・state・ログをGitへ追加しない。
 
 ## 毎回の流れ
 
