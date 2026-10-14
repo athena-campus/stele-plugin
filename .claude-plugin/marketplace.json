@@ -13,7 +13,13 @@
         "name": "Stele"
       },
       "repository": "https://github.com/athena-campus/stele-plugin",
-      "keywords": ["stele", "mcp", "documentation", "suggestions"]
+      "keywords": [
+        "stele",
+        "mcp",
+        "documentation",
+        "suggestions"
+      ],
+      "version": "0.10.0"
     }
   ]
 }

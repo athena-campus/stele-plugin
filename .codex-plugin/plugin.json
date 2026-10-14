@@ -1,15 +1,19 @@
 {
   "name": "stele",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Workflow guidance for using Stele MCP safely and correctly.",
   "author": {
     "name": "Stele"
   },
   "homepage": "https://docs.stele.app/docs/mcp/client-skill",
   "repository": "https://github.com/athena-campus/stele-plugin",
-  "keywords": ["stele", "mcp", "documentation", "suggestions"],
+  "keywords": [
+    "stele",
+    "mcp",
+    "documentation",
+    "suggestions"
+  ],
   "skills": "./skills/",
-  "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
     "displayName": "Stele",
     "shortDescription": "Use Stele MCP safely from Codex.",
@@ -17,7 +21,6 @@
     "developerName": "Stele",
     "category": "Productivity",
     "capabilities": [],
-    "websiteURL": "https://stele-delta.vercel.app",
     "defaultPrompt": [
       "Read a Stele Document and propose a governed update."
     ]
